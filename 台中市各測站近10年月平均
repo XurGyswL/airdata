@@ -1,0 +1,64 @@
+import numpy as np
+import pandas as pd
+import os
+import plotly.graph_objects as go
+
+df = pd.DataFrame()
+df_tem = pd.DataFrame()
+file_range = ["2012", "2013","2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021"]
+site = ["大里", "西屯", "忠明", "沙鹿", "豐原"]
+df_s = ["dfs1", "dfs2", "dfs3", "dfs4", "dfs5"]
+df_ave = ["dfs1_ave", "dfs2_ave", "dfs3_ave", "dfs4_ave", "dfs5_ave"]
+month = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+
+
+for path , dir, file in os.walk("source\\air_data"):
+    for f in file:
+        if (os.path.splitext(f)[0][-8:-4]) in file_range:
+            file_path = "source\\air_data\\"+f
+            df_tem = pd.read_csv(file_path, low_memory=False)
+            df_tem = df_tem[df_tem.itemengname == "PM2.5"]
+            df_tem.drop(["siteid", "itemid", "itemname", "itemunit", "itemengname"], axis=1, inplace=True)
+            df_tem.insert(1, "年分", os.path.splitext(f)[0][-8:-4])
+            df_tem.insert(2, "月分", os.path.splitext(f)[0].split("-")[1][0:2])
+            for i in range(4, 28):
+                df_tem[df_tem.columns[i]] = pd.to_numeric(df_tem[df_tem.columns[i]], errors = "coerce")
+            df_tem.insert(4, "平均", df_tem.iloc[:, 4:28].mean(axis = 1, skipna = True))
+            df_tem.columns = ["測站", "年份", "月份", "日期", "平均", 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+            df_tem = df_tem[(df_tem.測站 == "大里") | (df_tem.測站 == "西屯") | (df_tem.測站 == "忠明") | (df_tem.測站 == "沙鹿") | (df_tem.測站 == "豐原") ]
+            
+            df = pd.concat([df, df_tem], axis = 0)
+            df.reset_index(drop=True, inplace=True)
+
+for i in range(0, 5):
+    df_s[i] = pd.DataFrame()
+    df_s[i] = df[df.測站 == site[i]].copy()
+    df_s[i].reset_index(drop = True, inplace = True)
+    df_ave[i] = pd.DataFrame()
+    df_ave[i] = df_s[i][["月份", "平均"]].groupby("月份").mean()
+    
+
+fig = go.Figure()
+
+for i in range(0,5):
+    fig.add_trace(go.Scatter(
+        x=df_ave[i].index,
+        y=df_ave[i]["平均"],
+        mode='lines+markers',
+        name=site[i],
+
+        #line_color="red",
+        #marker_color="red",
+        hovertemplate="<b>%{x}</b> 月<br><b>%{y}</b> µm<extra></extra>"
+    ))
+
+
+fig.update_layout(
+    title_text='台中市各測站近10年月平均',
+    title_font_size=30,
+    title_x=0.5,
+    xaxis_title="月",
+    xaxis_range=[0, 11],
+    xaxis_tickmode="linear",
+    yaxis_title="PM2.5 (µm)"
+)
